@@ -1,0 +1,94 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment
+.env
+.env.local
+.env.docker
+.env.prod
+.env.production
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Models
+models/*
+!models/.gitkeep
+
+# Logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Neo4j
+.neo4j/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+
+# Docker
+.env
+docker-compose.override.yml
+backups/
+
+# Internal documentation (not for public repo)
+CLAUDE.md
+*_SUMMARY.md
+*_STEPS.md
+*_DESIGN.md
+*_IMPROVEMENTS.md
+*_FIX*.md
+*_SETUP.md
+*_STRATEGY.md
+*_LOGGING.md
+*_CLEANUP.md
+TODO.md
+NOTES.md
+
+# Claude Code / AI artifacts
+.claude/
+*.env

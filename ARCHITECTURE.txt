@@ -1,0 +1,161 @@
+╔════════════════════════════════════════════════════════════════════╗
+║                  TUNISIAN ECONOMY KNOWLEDGE GRAPH                  ║
+║                             MVP ARCHITECTURE                        ║
+╚════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         DATA SOURCES                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  • PDF Documents (annual reports, business documents)               │
+│  • Web Sources (TAP, African Manager, IlBoursa)                     │
+│  • Manual uploads via API                                           │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                    LAYER 1: INGESTION                               │
+├─────────────────────────────────────────────────────────────────────┤
+│  Module: backend/ingestion/                                         │
+│  • PDF upload (FastAPI multipart)                                   │
+│  • Web scrapers (BeautifulSoup, requests)                           │
+│  • Document storage (data/raw/)                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                  LAYER 2: PROCESSING                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  Module: backend/processing/                                        │
+│  • PDF extraction (PyMuPDF)                                         │
+│  • OCR for scans (Tesseract)                                        │
+│  • Structure-aware chunking (paragraph/section boundaries)          │
+│  Output: Text chunks with metadata                                  │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                  LAYER 3: EXTRACTION                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  Module: backend/extraction/                                        │
+│                                                                      │
+│  ┌──────────────────┐        ┌──────────────────┐                  │
+│  │  NER Extractor   │        │  LLM Extractor   │                  │
+│  │   (spaCy)        │        │   (Ollama)       │                  │
+│  ├──────────────────┤        ├──────────────────┤                  │
+│  │ • Fast           │        │ • Contextual     │                  │
+│  │ • High recall    │        │ • Relations      │                  │
+│  │ • Entities only  │        │ • High precision │                  │
+│  └──────────────────┘        └──────────────────┘                  │
+│           │                            │                            │
+│           └──────────┬─────────────────┘                            │
+│                      ↓                                              │
+│              Hybrid Extractor                                       │
+│                                                                      │
+│  Output: Entities + Relations (JSON with confidence)                │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                  LAYER 4: RESOLUTION                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  Module: backend/resolution/                                        │
+│                                                                      │
+│  Entity Deduplication Pipeline:                                     │
+│  1. Exact match → merge                                             │
+│  2. Fuzzy matching (rapidfuzz) → merge if >85% similar              │
+│  3. Embedding similarity → merge if >0.85 semantic similarity       │
+│  4. Manual review → ValidationQueue for ambiguous cases             │
+│                                                                      │
+│  Handles multilingual variants:                                     │
+│  • "Poulina" / "بولينا" / "Poulina Group" → same entity            │
+│                                                                      │
+│  Output: Deduplicated entities with aliases                         │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│               LAYER 5: GRAPH STORAGE (Neo4j)                        │
+├─────────────────────────────────────────────────────────────────────┤
+│  Module: backend/graph/                                             │
+│                                                                      │
+│  Property Graph Schema:                                             │
+│                                                                      │
+│    ┌─────────┐                                                      │
+│    │ Person  │──OWNS──────────→┌─────────┐                         │
+│    └─────────┘                 │ Company │                          │
+│         │                      └─────────┘                          │
+│         │                           │                               │
+│    DIRECTOR_OF              SUBSIDIARY_OF                           │
+│         │                           │                               │
+│         ↓                           ↓                               │
+│    ┌─────────┐                 ┌───────┐                           │
+│    │  Group  │──OPERATES_IN──→ │Sector │                           │
+│    └─────────┘                 └───────┘                            │
+│                                                                      │
+│  Every relation has:                                                │
+│  • confidence score                                                 │
+│  • evidence text                                                    │
+│  • source document link                                             │
+│                                                                      │
+│  Indexes on: name, type, document path                              │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                    API LAYER (FastAPI)                              │
+├─────────────────────────────────────────────────────────────────────┤
+│  /api/documents/*    - Upload, list documents                       │
+│  /api/entities/*     - Search, view entities                        │
+│  /api/query/*        - Natural language queries                     │
+│  /api/graph/*        - Graph exploration, statistics                │
+│  /api/scraping/*     - Web scraping triggers                        │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                  FRONTEND (React + Cytoscape)                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐                                                   │
+│  │ Search Panel │  ← Query entities                                 │
+│  │              │  ← Ask NL questions                               │
+│  └──────────────┘                                                   │
+│                                                                      │
+│  ┌───────────────────────────────────────┐                          │
+│  │   Graph Visualization (Cytoscape)     │                          │
+│  │                                       │                          │
+│  │   ● Person (red)                      │                          │
+│  │   ● Company (blue)                    │                          │
+│  │   ● Group (purple)                    │                          │
+│  │   ● Bank (green)                      │                          │
+│  │                                       │                          │
+│  │   Interactive: click → details        │                          │
+│  └───────────────────────────────────────┘                          │
+└─────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+                          KEY TECHNOLOGIES
+═══════════════════════════════════════════════════════════════════════
+
+Backend:     Python, FastAPI, spaCy, Ollama, PyMuPDF, Tesseract
+Database:    Neo4j 5.x (property graph)
+Frontend:    React 18, Vite, Cytoscape.js
+NLP:         spaCy (fr/en), llama3.1, sentence-transformers
+Resolution:  rapidfuzz, embeddings, human-in-loop
+
+═══════════════════════════════════════════════════════════════════════
+                           DATA FLOW EXAMPLE
+═══════════════════════════════════════════════════════════════════════
+
+1. Upload "Annual_Report_2023.pdf"
+   ↓
+2. Extract 50 pages → 120 chunks
+   ↓
+3. For each chunk:
+   - spaCy finds: "Poulina Group", "Abdelwaheb Ben Ayed"
+   - LLM extracts: FOUNDED relation with evidence
+   ↓
+4. Resolve duplicates:
+   - "Poulina" + "PGH" → merge as "Poulina Group"
+   ↓
+5. Store in Neo4j:
+   - Person node: "Abdelwaheb Ben Ayed"
+   - Group node: "Poulina Group"
+   - Relation: FOUNDED (confidence: 0.95, source: Annual_Report_2023.pdf)
+   ↓
+6. Query: "Who founded Poulina Group?"
+   → Returns: "Abdelwaheb Ben Ayed" with evidence
+
+═══════════════════════════════════════════════════════════════════════
